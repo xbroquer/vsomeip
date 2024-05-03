@@ -2833,6 +2833,7 @@ void routing_manager_client::on_update_security_credentials(
     for (const auto &c : _command.get_credentials()) {
         std::shared_ptr<policy> its_policy(std::make_shared<policy>());
         boost::icl::interval_set<uint32_t> its_gid_set;
+        its_gid_set.clear();
         uid_t its_uid(c.first);
         gid_t its_gid(c.second);
 
