@@ -15,7 +15,8 @@ constexpr std::uint8_t VSOMEIP_PROTOCOL_VERSION          = 0x1;
 constexpr std::size_t VSOMEIP_MAX_LOCAL_MESSAGE_SIZE     = 0;
 // 0 = unlimited, if not specified otherwise via configuration file
 constexpr std::size_t VSOMEIP_MAX_TCP_MESSAGE_SIZE       = 0;
-constexpr std::size_t VSOMEIP_MAX_UDP_MESSAGE_SIZE       = 1416;
+//constexpr std::size_t VSOMEIP_MAX_UDP_MESSAGE_SIZE       = 1416; // pcu platform_vendor_valeo_vsomeip Merge requests !35 
+constexpr std::size_t VSOMEIP_MAX_UDP_MESSAGE_SIZE       = 1476;
 
 constexpr std::size_t VSOMEIP_PACKET_SIZE                = VSOMEIP_MAX_UDP_MESSAGE_SIZE;
 
