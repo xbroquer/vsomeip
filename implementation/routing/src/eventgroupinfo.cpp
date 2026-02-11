@@ -461,7 +461,9 @@ eventgroupinfo::send_initial_events(
     {
         std::lock_guard<std::mutex> its_lock(events_mutex_);
         for (const auto &its_event : events_) {
-            if (its_event && its_event->get_type() == event_type_e::ET_FIELD) {
+            if (its_event &&
+                    (its_event->get_type() == event_type_e::ET_FIELD ||
+                     its_event->get_type() == event_type_e::ET_EVENT)) {
                 auto its_reliability = its_event->get_reliability();
 #ifdef VSOMEIP_ENABLE_COMPAT
                 if (its_reliability == reliability_type_e::RT_UNKNOWN) {
