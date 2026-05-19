@@ -1136,7 +1136,7 @@ std::shared_ptr<endpoint> endpoint_manager_impl::create_remote_client(
                 }
                 boost::system::error_code ec;
                 VSOMEIP_INFO << "endpoint_manager_impl::create_remote_client: "
-                        << its_endpoint_def->get_address().to_string(ec)
+                        << its_endpoint_def->get_address().to_string()
                         << ":" << std::dec << its_endpoint_def->get_port()
                         << " reliable: " << _reliable
                         << " using local port: " << std::dec << its_local_port;

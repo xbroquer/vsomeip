@@ -107,14 +107,14 @@ configuration_impl::configuration_impl(const std::string &_path)
       is_security_audit_(false),
       is_remote_access_allowed_(true) {
 
-    unicast_ = unicast_.from_string(VSOMEIP_UNICAST_ADDRESS);
-    netmask_ = netmask_.from_string(VSOMEIP_NETMASK);
+    unicast_ = boost::asio::ip::make_address(VSOMEIP_UNICAST_ADDRESS);
+    netmask_ = boost::asio::ip::make_address(VSOMEIP_NETMASK);
     for (auto i = 0; i < ET_MAX; i++)
         is_configured_[i] = false;
 
 #ifdef _WIN32
 #if VSOMEIP_BOOST_VERSION < 106600
-    routing_.host_.unicast_ = boost::asio::ip::address::from_string("127.0.0.1");
+    routing_.host_.unicast_ = boost::asio::ip::make_address("127.0.0.1");
 #else
     routing_.host_.unicast_ = boost::asio::ip::make_address("127.0.0.1");
 #endif
@@ -830,7 +830,7 @@ configuration_impl::load_routing_host(const boost::property_tree::ptree &_tree,
             } else if (its_key == "unicast") {
 #if VSOMEIP_BOOST_VERSION < 106600
                 routing_.host_.unicast_
-                    = boost::asio::ip::address::from_string(its_value);
+                    = boost::asio::ip::make_address(its_value);
 #else
                 routing_.host_.unicast_
                     = boost::asio::ip::make_address(its_value);
@@ -867,7 +867,7 @@ configuration_impl::load_routing_guests(const boost::property_tree::ptree &_tree
                 std::string its_value(i->second.data());
 #if VSOMEIP_BOOST_VERSION < 106600
                 routing_.guests_.unicast_
-                    = boost::asio::ip::address::from_string(its_value);
+                    = boost::asio::ip::make_address(its_value);
 #else
                 routing_.guests_.unicast_
                     = boost::asio::ip::make_address(its_value);
@@ -1568,7 +1568,7 @@ void configuration_impl::load_unicast_address(const configuration_element &_elem
             VSOMEIP_WARNING << "Multiple definitions for unicast."
                     "Ignoring definition from " << _element.name_;
         } else {
-            unicast_ = unicast_.from_string(its_value);
+            unicast_ = boost::asio::ip::make_address(its_value);
             is_configured_[ET_UNICAST] = true;
         }
     } catch (...) {
@@ -1584,7 +1584,7 @@ void configuration_impl::load_netmask(const configuration_element &_element) {
                 VSOMEIP_WARNING << "Multiple definitions for netmask/prefix."
                         "Ignoring netmask definition from " << _element.name_;
             } else {
-                netmask_ = netmask_.from_string(*its_value);
+                netmask_ = boost::asio::ip::make_address(*its_value);
                 is_configured_[ET_NETMASK] = true;
             }
         }
@@ -4204,7 +4204,7 @@ configuration_impl::load_acceptance_data(
             std::string its_value(i->second.data());
 
             if (its_key == "address") {
-                its_address = boost::asio::ip::address::from_string(its_value);
+                its_address = boost::asio::ip::make_address(its_value);
             } else if (its_key == "path") {
                 its_path = its_value;
             } else if (its_key == "reliable" || its_key == "unreliable") {

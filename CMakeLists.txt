@@ -4,6 +4,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 cmake_minimum_required (VERSION 3.13)
+
+# CMake 3.30+ removed FindBoost module; use BoostConfig.cmake directly
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 project (vsomeip)
 
 set (VSOMEIP_NAME vsomeip3)
@@ -23,7 +29,7 @@ if (NOT GTEST_ROOT)
         set(GTEST_ROOT $ENV{GTEST_ROOT})
     else()
         include(FetchContent)
-        FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.14.0) 
+        FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.14.0)
         FetchContent_Populate(googletest)
         set(GTEST_ROOT ${googletest_SOURCE_DIR})
     endif()
@@ -166,7 +172,9 @@ add_definitions(-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED)
 find_package(Threads REQUIRED)
 
 # Boost
-find_package( Boost 1.55 COMPONENTS system thread filesystem REQUIRED )
+# Since Boost 1.69, boost_system is header-only and starting from Boost 1.90
+# the cmake config for it has been removed entirely.
+find_package(Boost 1.55 REQUIRED COMPONENTS filesystem thread)
 if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
     include_directories(${Boost_INCLUDE_DIR} )
 else()

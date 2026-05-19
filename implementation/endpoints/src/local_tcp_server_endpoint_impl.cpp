@@ -9,6 +9,7 @@
 
 #include <sys/types.h>
 #include <boost/asio/write.hpp>
+#include "../../helper/boost_compat.hpp"
 
 #include <vsomeip/internal/logger.hpp>
 
@@ -55,7 +56,7 @@ local_tcp_server_endpoint_impl::local_tcp_server_endpoint_impl(
     acceptor_.bind(_local, ec);
     boost::asio::detail::throw_error(ec, "acceptor bind");
 
-    acceptor_.listen(boost::asio::socket_base::max_connections, ec);
+    acceptor_.listen(VSOMEIP_MAX_CONNECTIONS, ec);
     boost::asio::detail::throw_error(ec, "acceptor listen");
 }
 
@@ -78,7 +79,7 @@ void local_tcp_server_endpoint_impl::start() {
         boost::asio::detail::throw_error(ec, "acceptor set_option");
         acceptor_.bind(local_, ec);
         boost::asio::detail::throw_error(ec, "acceptor bind");
-        acceptor_.listen(boost::asio::socket_base::max_connections, ec);
+        acceptor_.listen(VSOMEIP_MAX_CONNECTIONS, ec);
         boost::asio::detail::throw_error(ec, "acceptor listen");
     }
 
@@ -649,7 +650,7 @@ void local_tcp_server_endpoint_impl::connection::receive_cbk(
 
                         if (its_address.is_v4()) {
                             sec_client_.host
-                                = htonl(uint32_t(its_address.to_v4().to_ulong()));
+                                = htonl(uint32_t(its_address.to_v4().to_uint()));
                         }
                         sec_client_.port = htons(its_port);
                         security::sync_client(&sec_client_);
@@ -747,7 +748,7 @@ std::string local_tcp_server_endpoint_impl::connection::get_path_local() const {
     if (socket_.is_open()) {
         endpoint_type its_local_endpoint = socket_.local_endpoint(ec);
         if (!ec) {
-            its_local_path += its_local_endpoint.address().to_string(ec);
+            its_local_path += its_local_endpoint.address().to_string();
             its_local_path += ":";
             its_local_path += std::to_string(its_local_endpoint.port());
         }
@@ -761,7 +762,7 @@ std::string local_tcp_server_endpoint_impl::connection::get_path_remote() const 
     if (socket_.is_open()) {
         endpoint_type its_remote_endpoint = socket_.remote_endpoint(ec);
         if (!ec) {
-            its_remote_path += its_remote_endpoint.address().to_string(ec);
+            its_remote_path += its_remote_endpoint.address().to_string();
             its_remote_path += ":";
             its_remote_path += std::to_string(its_remote_endpoint.port());
         }
@@ -842,16 +843,14 @@ void local_tcp_server_endpoint_impl::print_status() {
 }
 std::string local_tcp_server_endpoint_impl::get_remote_information(
         const target_data_iterator_type _it) const {
-    boost::system::error_code ec;
-    return _it->first.address().to_string(ec) + ":"
+    return _it->first.address().to_string() + ":"
             + std::to_string(_it->first.port());
 }
 
 std::string local_tcp_server_endpoint_impl::get_remote_information(
         const endpoint_type& _remote) const {
 
-    boost::system::error_code ec;
-    return _remote.address().to_string(ec) + ":"
+    return _remote.address().to_string() + ":"
             + std::to_string(_remote.port());
 }
 

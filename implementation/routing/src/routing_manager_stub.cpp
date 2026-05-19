@@ -104,7 +104,7 @@ void routing_manager_stub::start() {
         // Wait VSOMEIP_MAX_CONNECT_TIMEOUT * 2 and expect after that time
         // that all client_ids are used have to be connected to the routing.
         // Otherwise they can be marked as "erroneous client".
-        client_id_timer_.expires_from_now(std::chrono::milliseconds(VSOMEIP_MAX_CONNECT_TIMEOUT * 2));
+        client_id_timer_.expires_after(std::chrono::milliseconds(VSOMEIP_MAX_CONNECT_TIMEOUT * 2));
         client_id_timer_.async_wait(
             std::bind(
                     &routing_manager_stub::on_client_id_timer_expired,
@@ -1545,7 +1545,7 @@ void routing_manager_stub::start_watchdog() {
     {
         std::lock_guard<std::mutex> its_lock(watchdog_timer_mutex_);
         // Divide / 2 as start and check sleep each
-        watchdog_timer_.expires_from_now(
+        watchdog_timer_.expires_after(
                 std::chrono::milliseconds(
                         configuration_->get_watchdog_timeout() / 2));
 
@@ -1584,7 +1584,7 @@ void routing_manager_stub::check_watchdog() {
             };
     {
         std::lock_guard<std::mutex> its_lock(watchdog_timer_mutex_);
-        watchdog_timer_.expires_from_now(
+        watchdog_timer_.expires_after(
                 std::chrono::milliseconds(
                         configuration_->get_watchdog_timeout() / 2));
         watchdog_timer_.async_wait(its_callback);
@@ -1626,7 +1626,7 @@ bool routing_manager_stub::send_ping(client_t _client) {
             has_sent = true;
         } else {
             boost::system::error_code ec;
-            pinged_clients_timer_.cancel(ec);
+            pinged_clients_timer_.cancel();
             if (ec) {
                 VSOMEIP_ERROR << "routing_manager_stub::send_ping cancellation of "
                         "timer failed: " << ec.message();
@@ -1647,7 +1647,7 @@ bool routing_manager_stub::send_ping(client_t _client) {
             pinged_clients_[_client] = now;
 
             ec.clear();
-            pinged_clients_timer_.expires_from_now(next_timeout, ec);
+            pinged_clients_timer_.expires_after(next_timeout);
             if (ec) {
                 VSOMEIP_ERROR << "routing_manager_stub::send_ping setting "
                     "expiry time of timer failed: " << ec.message();
@@ -1721,7 +1721,7 @@ void routing_manager_stub::on_ping_timer_expired(
     }
     if (pinged_clients_remaining) {
         boost::system::error_code ec;
-        pinged_clients_timer_.expires_from_now(next_timeout, ec);
+        pinged_clients_timer_.expires_after(next_timeout);
         if (ec) {
             VSOMEIP_ERROR<< "routing_manager_stub::on_ping_timer_expired "
             "setting expiry time of timer failed: " << ec.message();
@@ -1738,7 +1738,7 @@ void routing_manager_stub::remove_from_pinged_clients(client_t _client) {
         return;
     }
     boost::system::error_code ec;
-    pinged_clients_timer_.cancel(ec);
+    pinged_clients_timer_.cancel();
     if (ec) {
         VSOMEIP_ERROR << "routing_manager_stub::remove_from_pinged_clients "
                 "cancellation of timer failed: " << ec.message();
@@ -1761,7 +1761,7 @@ void routing_manager_stub::remove_from_pinged_clients(client_t _client) {
         }
     }
     ec.clear();
-    pinged_clients_timer_.expires_from_now(next_timeout, ec);
+    pinged_clients_timer_.expires_after(next_timeout);
     if (ec) {
         VSOMEIP_ERROR<< "routing_manager_stub::remove_from_pinged_clients "
         "setting expiry time of timer failed: " << ec.message();
@@ -2261,7 +2261,7 @@ routing_manager_stub::add_pending_security_update_timer(
         = std::make_shared<boost::asio::steady_timer>(io_);
 
     boost::system::error_code ec;
-    its_timer->expires_from_now(std::chrono::milliseconds(3000), ec);
+    its_timer->expires_after(std::chrono::milliseconds(3000));
     if (!ec) {
         its_timer->async_wait(
                 std::bind(
@@ -2574,7 +2574,7 @@ void routing_manager_stub::on_security_update_response(
                 auto found_timer = security_update_timers_.find(_id);
                 if (found_timer != security_update_timers_.end()) {
                     boost::system::error_code ec;
-                    found_timer->second->cancel(ec);
+                    found_timer->second->cancel();
                     security_update_timers_.erase(found_timer);
                 } else {
                     VSOMEIP_WARNING << __func__ << ": Received all responses "

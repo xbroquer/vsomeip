@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #if VSOMEIP_BOOST_VERSION < 106600
 #include <boost/asio/local/stream_protocol_ext.hpp>
@@ -61,7 +62,7 @@ void server_endpoint_impl<Protocol>::prepare_stop(
         for (auto t = targets_.begin(); t != targets_.end(); t++) {
             auto its_train (t->second.train_);
             // cancel dispatch timer
-            t->second.dispatch_timer_->cancel(ec);
+            t->second.dispatch_timer_->cancel();
             if (its_train->buffer_->size() > 0) {
                 if (queue_train(t, its_train))
                     its_erased.push_back(t);
@@ -74,7 +75,7 @@ void server_endpoint_impl<Protocol>::prepare_stop(
             for (auto const& passenger_iter : its_train->passengers_) {
                 if (passenger_iter.first == _service) {
                     // cancel dispatch timer
-                    t->second.dispatch_timer_->cancel(ec);
+                    t->second.dispatch_timer_->cancel();
                     // TODO: Queue all(!) trains here...
                     if (queue_train(t, its_train))
                         its_erased.push_back(t);
@@ -95,7 +96,7 @@ void server_endpoint_impl<Protocol>::prepare_stop(
                                 { return _t.second.queue_.empty(); })) {
                 // nothing was queued and all queues are empty -> ensure cbk is called
                 auto ptr = this->shared_from_this();
-                endpoint_impl<Protocol>::io_.post([ptr, _handler, _service](){
+                boost::asio::post(endpoint_impl<Protocol>::io_, [ptr, _handler, _service](){
                                                             _handler(ptr, _service);
                                                         });
             } else {
@@ -122,7 +123,7 @@ void server_endpoint_impl<Protocol>::prepare_stop(
                 prepare_stop_handlers_[_service] = _handler;
             } else { // no messages of the to be stopped service are or have been queued
                 auto ptr = this->shared_from_this();
-                endpoint_impl<Protocol>::io_.post([ptr, _handler, _service](){
+                boost::asio::post(endpoint_impl<Protocol>::io_, [ptr, _handler, _service](){
                                                             _handler(ptr, _service);
                                                         });
             }
@@ -644,7 +645,7 @@ void server_endpoint_impl<Protocol>::send_cbk(
             } else { // all messages of the to be stopped service have been sent
                 auto handler = stp_hndlr_iter->second;
                 auto ptr = this->shared_from_this();
-                endpoint_impl<Protocol>::io_.post([ptr, handler, its_stopped_service](){
+                boost::asio::post(endpoint_impl<Protocol>::io_, [ptr, handler, its_stopped_service](){
                     handler(ptr, its_stopped_service);
                 });
                 stp_hndlr_iter = prepare_stop_handlers_.erase(stp_hndlr_iter);
@@ -666,7 +667,7 @@ void server_endpoint_impl<Protocol>::send_cbk(
             if (found_cbk != prepare_stop_handlers_.end()) {
                 auto handler = found_cbk->second;
                 auto ptr = this->shared_from_this();
-                endpoint_impl<Protocol>::io_.post([ptr, handler](){
+                boost::asio::post(endpoint_impl<Protocol>::io_, [ptr, handler](){
                     handler(ptr, ANY_SERVICE);
                 });
                 prepare_stop_handlers_.erase(found_cbk);
@@ -683,8 +684,7 @@ void server_endpoint_impl<Protocol>::send_cbk(
 
     auto& its_data = it->second;
 
-    boost::system::error_code ec;
-    its_data.sent_timer_.cancel(ec);
+    its_data.sent_timer_.cancel();
 
     // Extracts some information for logging puposes.
     //
@@ -849,9 +849,9 @@ void server_endpoint_impl<Protocol>::start_dispatch_timer(
     }
 
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
-    its_data.dispatch_timer_->expires_from_now(its_offset);
+    its_data.dispatch_timer_->expires_after(its_offset);
 #else
-    its_data.dispatch_timer_->expires_from_now(
+    its_data.dispatch_timer_->expires_after(
             std::chrono::duration_cast<
                 std::chrono::steady_clock::duration>(its_offset));
 #endif
@@ -865,7 +865,7 @@ void server_endpoint_impl<Protocol>::cancel_dispatch_timer(
         target_data_iterator_type _it) {
 
     boost::system::error_code ec;
-    _it->second.dispatch_timer_->cancel(ec);
+    _it->second.dispatch_timer_->cancel();
 }
 
 template<typename Protocol>

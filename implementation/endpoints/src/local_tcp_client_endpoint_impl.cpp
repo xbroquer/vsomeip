@@ -7,6 +7,8 @@
 #include <sstream>
 
 #include <boost/asio/write.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/post.hpp>
 
 #include <vsomeip/defines.hpp>
 #include <vsomeip/internal/logger.hpp>
@@ -83,7 +85,7 @@ void local_tcp_client_endpoint_impl::stop() {
     {
         std::lock_guard<std::mutex> its_lock(connect_timer_mutex_);
         boost::system::error_code ec;
-        connect_timer_.cancel(ec);
+        connect_timer_.cancel();
     }
     connect_timeout_ = VSOMEIP_DEFAULT_CONNECT_TIMEOUT;
 
@@ -133,7 +135,7 @@ void local_tcp_client_endpoint_impl::connect() {
         start_connecting_timer();
         socket_->async_connect(
             remote_,
-            strand_.wrap(
+            boost::asio::bind_executor(strand_, 
                 std::bind(
                     &local_tcp_client_endpoint_impl::cancel_and_connect_cbk,
                     shared_from_this(),
@@ -146,7 +148,7 @@ void local_tcp_client_endpoint_impl::connect() {
                 << its_error.message() << " (" << std::dec << its_error.value() << ")";
         its_connect_error = its_error;
         try {
-            strand_.post(
+            boost::asio::post(strand_, 
                 std::bind(&client_endpoint_impl::connect_cbk, shared_from_this(),
                         its_connect_error));
         } catch (const std::exception &e) {
@@ -160,7 +162,7 @@ void local_tcp_client_endpoint_impl::receive() {
     if (socket_->is_open()) {
         socket_->async_receive(
             boost::asio::buffer(recv_buffer_),
-            strand_.wrap(
+            boost::asio::bind_executor(strand_, 
                 std::bind(
                     &local_tcp_client_endpoint_impl::receive_cbk,
                     std::dynamic_pointer_cast<
@@ -325,8 +327,7 @@ void local_tcp_client_endpoint_impl::print_status() {
 
 std::string local_tcp_client_endpoint_impl::get_remote_information() const {
 
-    boost::system::error_code ec;
-    return remote_.address().to_string(ec) + ":"
+    return remote_.address().to_string() + ":"
             + std::to_string(remote_.port());
 }
 

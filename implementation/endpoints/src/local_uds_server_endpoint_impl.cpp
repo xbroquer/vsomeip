@@ -9,6 +9,7 @@
 
 #include <sys/types.h>
 #include <boost/asio/write.hpp>
+#include "../../helper/boost_compat.hpp"
 
 #include <vsomeip/internal/logger.hpp>
 
@@ -60,7 +61,7 @@ local_uds_server_endpoint_impl::local_uds_server_endpoint_impl(
         VSOMEIP_ERROR << __func__
             << ": bind failed (" << ec.message() << ")";
 
-    acceptor_.listen(boost::asio::socket_base::max_connections, ec);
+    acceptor_.listen(VSOMEIP_MAX_CONNECTIONS, ec);
     if (ec)
         VSOMEIP_ERROR << __func__
             << ": listen failed (" << ec.message() << ")";

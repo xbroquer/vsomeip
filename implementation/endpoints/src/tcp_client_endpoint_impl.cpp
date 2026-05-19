@@ -6,6 +6,8 @@
 #include <iomanip>
 
 #include <boost/asio/write.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/post.hpp>
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/defines.hpp>
@@ -67,7 +69,7 @@ bool tcp_client_endpoint_impl::is_local() const {
 }
 
 void tcp_client_endpoint_impl::start() {
-    strand_.dispatch(std::bind(&client_endpoint_impl::connect,
+    boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::connect,
             this->shared_from_this()));
 }
 
@@ -132,7 +134,7 @@ void tcp_client_endpoint_impl::restart(bool _force) {
     };
     // bind to strand_ to avoid socket closure if
     // parallel socket operation is currently active
-    strand_.dispatch(restart_func);
+    boost::asio::dispatch(strand_, restart_func);
 }
 
 void tcp_client_endpoint_impl::connect() {
@@ -220,7 +222,7 @@ void tcp_client_endpoint_impl::connect() {
                 if (operations_cancelled != 0) {
                     try {
                         // don't connect on bind error to avoid using a random port
-                        strand_.post(std::bind(&client_endpoint_impl::connect_cbk,
+                        boost::asio::post(strand_, std::bind(&client_endpoint_impl::connect_cbk,
                                         shared_from_this(), its_bind_error));
                     } catch (const std::exception &e) {
                         VSOMEIP_ERROR << "tcp_client_endpoint_impl::connect: "
@@ -237,7 +239,7 @@ void tcp_client_endpoint_impl::connect() {
         aborted_restart_count_ = 0;
         socket_->async_connect(
             remote_,
-            strand_.wrap(
+            boost::asio::bind_executor(strand_, 
                 std::bind(
                     &tcp_client_endpoint_base_impl::cancel_and_connect_cbk,
                     shared_from_this(),
@@ -254,7 +256,7 @@ void tcp_client_endpoint_impl::connect() {
         if (operations_cancelled != 0) {
             VSOMEIP_WARNING << "tcp_client_endpoint::connect: Error opening socket: "
                     << its_error.message() << " remote:" << get_address_port_remote();
-            strand_.post(std::bind(&tcp_client_endpoint_base_impl::connect_cbk,
+            boost::asio::post(strand_, std::bind(&tcp_client_endpoint_base_impl::connect_cbk,
                                     shared_from_this(), its_error));
         }
     }
@@ -267,7 +269,7 @@ void tcp_client_endpoint_impl::receive() {
         its_recv_buffer = recv_buffer_;
     }
     auto self = std::dynamic_pointer_cast< tcp_client_endpoint_impl >(shared_from_this());
-    strand_.dispatch([self, &its_recv_buffer](){
+    boost::asio::dispatch(strand_, [self, &its_recv_buffer](){
         self->receive(its_recv_buffer, 0, 0);
     });
 }
@@ -312,7 +314,7 @@ void tcp_client_endpoint_impl::receive(message_buffer_ptr_t  _recv_buffer,
         }
         socket_->async_receive(
             boost::asio::buffer(&(*_recv_buffer)[_recv_buffer_size], buffer_size),
-            strand_.wrap(
+            boost::asio::bind_executor(strand_, 
                 std::bind(
                     &tcp_client_endpoint_impl::receive_cbk,
                     std::dynamic_pointer_cast< tcp_client_endpoint_impl >(shared_from_this()),
@@ -374,7 +376,7 @@ void tcp_client_endpoint_impl::send_queued(std::pair<message_buffer_ptr_t, uint3
                     _entry.first->size(),
                     its_service, its_method, its_client, its_session,
                     std::chrono::steady_clock::now()),
-                strand_.wrap(
+                boost::asio::bind_executor(strand_, 
                     std::bind(
                     &tcp_client_endpoint_base_impl::send_cbk,
                     shared_from_this(),
@@ -774,7 +776,7 @@ void tcp_client_endpoint_impl::receive_cbk(
             }
             its_lock.unlock();
             auto self = std::dynamic_pointer_cast< tcp_client_endpoint_impl >(shared_from_this());
-            strand_.dispatch([self, &_recv_buffer, _recv_buffer_size, its_missing_capacity](){
+            boost::asio::dispatch(strand_, [self, &_recv_buffer, _recv_buffer_size, its_missing_capacity](){
                 self->receive(_recv_buffer, _recv_buffer_size, its_missing_capacity);
             });
         } else {
@@ -802,7 +804,7 @@ void tcp_client_endpoint_impl::receive_cbk(
             } else {
                 its_lock.unlock();
                 auto self = std::dynamic_pointer_cast< tcp_client_endpoint_impl >(shared_from_this());
-                strand_.dispatch([self, &_recv_buffer, _recv_buffer_size, its_missing_capacity](){
+                boost::asio::dispatch(strand_, [self, &_recv_buffer, _recv_buffer_size, its_missing_capacity](){
                     self->receive(_recv_buffer, _recv_buffer_size, its_missing_capacity);
                 });
             }
@@ -843,7 +845,7 @@ std::string tcp_client_endpoint_impl::get_address_port_local() const {
     if (socket_->is_open()) {
         endpoint_type its_local_endpoint = socket_->local_endpoint(ec);
         if (!ec) {
-            its_address_port += its_local_endpoint.address().to_string(ec);
+            its_address_port += its_local_endpoint.address().to_string();
             its_address_port += ":";
             its_address_port.append(std::to_string(its_local_endpoint.port()));
         }
@@ -880,7 +882,7 @@ void tcp_client_endpoint_impl::handle_recv_buffer_exception(
     {
         std::lock_guard<std::mutex> its_lock(connect_timer_mutex_);
         boost::system::error_code ec;
-        connect_timer_.cancel(ec);
+        connect_timer_.cancel();
     }
     if (socket_->is_open()) {
         boost::system::error_code its_error;
@@ -913,8 +915,7 @@ void tcp_client_endpoint_impl::print_status() {
 }
 
 std::string tcp_client_endpoint_impl::get_remote_information() const {
-    boost::system::error_code ec;
-    return remote_.address().to_string(ec) + ":"
+    return remote_.address().to_string() + ":"
             + std::to_string(remote_.port());
 }
 
@@ -924,8 +925,7 @@ void tcp_client_endpoint_impl::send_cbk(boost::system::error_code const &_error,
     (void)_bytes;
 
     std::lock_guard<std::recursive_mutex> its_lock(mutex_);
-    boost::system::error_code ec;
-    sent_timer_.cancel(ec);
+    sent_timer_.cancel();
 
     if (!_error) {
         if (queue_.size() > 0) {
@@ -940,7 +940,7 @@ void tcp_client_endpoint_impl::send_cbk(boost::system::error_code const &_error,
                 auto its_entry = get_front();
                 if (its_entry.first) {
                     auto self = std::dynamic_pointer_cast< tcp_client_endpoint_impl >(shared_from_this());
-                    strand_.dispatch(
+                    boost::asio::dispatch(strand_, 
                         [self, &its_entry]() { self->send_queued(its_entry);}
                     );
                 }
@@ -1032,7 +1032,7 @@ void tcp_client_endpoint_impl::wait_until_sent(const boost::system::error_code &
     } else {
         std::chrono::milliseconds its_timeout(VSOMEIP_MAX_TCP_SENT_WAIT_TIME);
         boost::system::error_code ec;
-        sent_timer_.expires_from_now(its_timeout, ec);
+        sent_timer_.expires_after(its_timeout);
         sent_timer_.async_wait(std::bind(&tcp_client_endpoint_impl::wait_until_sent,
                 std::dynamic_pointer_cast<tcp_client_endpoint_impl>(shared_from_this()),
                 std::placeholders::_1));

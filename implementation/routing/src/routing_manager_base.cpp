@@ -81,7 +81,7 @@ void routing_manager_base::debounce_timeout_update_cbk(const boost::system::erro
         }
 
         if (debounce_clients_.size() > 0) {
-            debounce_timer.expires_from_now(std::chrono::duration_cast<std::chrono::milliseconds>(debounce_clients_.begin()->first - std::chrono::steady_clock::now()));
+            debounce_timer.expires_after(std::chrono::duration_cast<std::chrono::milliseconds>(debounce_clients_.begin()->first - std::chrono::steady_clock::now()));
             debounce_timer.async_wait(std::get<2>(debounce_clients_.begin()->second));
         }
     } 
@@ -98,7 +98,7 @@ void routing_manager_base::register_debounce(const std::shared_ptr<debounce_filt
                     
         if (elem == debounce_clients_.begin()) {
             debounce_timer.cancel();
-            debounce_timer.expires_from_now(sec);
+            debounce_timer.expires_after(sec);
             debounce_timer.async_wait(std::get<2>(elem->second));
         }
     }
@@ -1282,7 +1282,7 @@ std::shared_ptr<eventgroupinfo> routing_manager_base::find_eventgroup(
                             its_multicast_address, its_multicast_port)) {
                         try {
                             its_info->set_multicast(
-                                    boost::asio::ip::address::from_string(
+                                    boost::asio::ip::make_address(
                                             its_multicast_address),
                                     its_multicast_port);
                         }

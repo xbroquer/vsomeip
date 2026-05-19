@@ -25,6 +25,7 @@
 #include <boost/asio/error.hpp>
 #include <boost/asio/socket_acceptor_service_ext.hpp>
 #include <boost/asio/socket_base.hpp>
+#include "../../../../helper/boost_compat.hpp"
 
 #include <boost/asio/detail/push_options.hpp>
 
@@ -151,7 +152,7 @@ public:
     this->get_service().bind(this->get_implementation(), endpoint, ec);
     boost::asio::detail::throw_error(ec, "bind");
     this->get_service().listen(this->get_implementation(),
-        socket_base::max_connections, ec);
+        VSOMEIP_MAX_CONNECTIONS, ec);
     boost::asio::detail::throw_error(ec, "listen");
   }
 
@@ -417,7 +418,7 @@ public:
    *
    * @throws boost::system::system_error Thrown on failure.
    */
-  void listen(int backlog = socket_base::max_connections)
+  void listen(int backlog = VSOMEIP_MAX_CONNECTIONS)
   {
     boost::system::error_code ec;
     this->get_service().listen(this->get_implementation(), backlog, ec);
@@ -439,7 +440,7 @@ public:
    * boost::asio::ip::tcp::acceptor acceptor(io_service);
    * ...
    * boost::system::error_code ec;
-   * acceptor.listen(boost::asio::socket_base::max_connections, ec);
+   * acceptor.listen(boost::asio::VSOMEIP_MAX_CONNECTIONS, ec);
    * if (ec)
    * {
    *   // An error occurred.

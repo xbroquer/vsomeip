@@ -5,6 +5,10 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 endif()
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(internal_routing_disabled_acceptance_test LANGUAGES CXX)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wall -Wconversion -Wextra")
@@ -14,7 +18,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 find_package(Threads REQUIRED)
-find_package(Boost 1.55 COMPONENTS system REQUIRED)
+find_package(Boost 1.55 COMPONENTS filesystem REQUIRED)
 
 add_executable(${PROJECT_NAME} applet.cpp client.cpp server.cpp main.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${gtest_SOURCE_DIR}/include)

@@ -431,7 +431,7 @@ void routing_manager_client::request_service(client_t _client,
             std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
             if (!request_debounce_timer_running_) {
                 request_debounce_timer_running_ = true;
-                request_debounce_timer_.expires_from_now(std::chrono::milliseconds(request_debouncing_time));
+                request_debounce_timer_.expires_after(std::chrono::milliseconds(request_debouncing_time));
                 request_debounce_timer_.async_wait(
                         std::bind(
                                 &routing_manager_client::request_debounce_timeout_cbk,
@@ -1803,8 +1803,7 @@ void routing_manager_client::on_routing_info(
                     {
                         std::lock_guard<std::mutex> its_lock(state_mutex_);
                         if (state_ == inner_state_type_e::ST_REGISTERING) {
-                            boost::system::error_code ec;
-                            register_application_timer_.cancel(ec);
+                            register_application_timer_.cancel();
                             send_registered_ack();
                             send_pending_commands();
                             state_ = inner_state_type_e::ST_REGISTERED;
@@ -2098,8 +2097,8 @@ void routing_manager_client::assign_client() {
             sender_->send(&its_buffer[0], static_cast<uint32_t>(its_buffer.size()));
 
             boost::system::error_code ec;
-            register_application_timer_.cancel(ec);
-            register_application_timer_.expires_from_now(std::chrono::milliseconds(3000));
+            register_application_timer_.cancel();
+            register_application_timer_.expires_after(std::chrono::milliseconds(3000));
             register_application_timer_.async_wait(
                     std::bind(
                             &routing_manager_client::assign_client_timeout_cbk,
@@ -2144,7 +2143,7 @@ void routing_manager_client::register_application() {
                 sender_->send(&its_buffer[0], uint32_t(its_buffer.size()));
 
                 register_application_timer_.cancel();
-                register_application_timer_.expires_from_now(std::chrono::milliseconds(1000));
+                register_application_timer_.expires_after(std::chrono::milliseconds(1000));
                 register_application_timer_.async_wait(
                         std::bind(
                                 &routing_manager_client::register_application_timeout_cbk,
@@ -2652,7 +2651,7 @@ void routing_manager_client::request_debounce_timeout_cbk(
                 {
                     std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
                     request_debounce_timer_running_ = true;
-                    request_debounce_timer_.expires_from_now(std::chrono::milliseconds(
+                    request_debounce_timer_.expires_after(std::chrono::milliseconds(
                             configuration_->get_request_debouncing(host_->get_name())));
                     request_debounce_timer_.async_wait(
                             std::bind(
@@ -2858,7 +2857,7 @@ void routing_manager_client::on_client_assign_ack(const client_t &_client) {
             state_ = inner_state_type_e::ST_ASSIGNED;
 
             boost::system::error_code ec;
-            register_application_timer_.cancel(ec);
+            register_application_timer_.cancel();
             host_->set_client(_client);
 
             if (is_started_) {

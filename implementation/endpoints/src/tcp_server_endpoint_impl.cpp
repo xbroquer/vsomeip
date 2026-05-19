@@ -7,6 +7,8 @@
 #include <iomanip>
 
 #include <boost/asio/write.hpp>
+#include <boost/asio/post.hpp>
+#include "../../helper/boost_compat.hpp"
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/internal/logger.hpp>
@@ -66,7 +68,7 @@ tcp_server_endpoint_impl::tcp_server_endpoint_impl(
         VSOMEIP_ERROR << __func__
             << ": bind failed (" << ec.message() << ")";
 
-    acceptor_.listen(boost::asio::socket_base::max_connections, ec);
+    acceptor_.listen(VSOMEIP_MAX_CONNECTIONS, ec);
     if (ec)
         VSOMEIP_ERROR << __func__
             << ": listen failed (" << ec.message() << ")";
@@ -191,7 +193,7 @@ bool tcp_server_endpoint_impl::send_queued(const target_data_iterator_type _it) 
                                 << its_service;
                         auto handler = found_cbk->second;
                         auto ptr = this->shared_from_this();
-                        io_.post([ptr, handler, its_service](){
+                        boost::asio::post(io_, [ptr, handler, its_service](){
                                 handler(ptr, its_service);
                         });
                         prepare_stop_handlers_.erase(found_cbk);
@@ -821,8 +823,7 @@ void tcp_server_endpoint_impl::connection::set_remote_info(
 std::string tcp_server_endpoint_impl::connection::get_address_port_remote() const {
     std::string its_address_port;
     its_address_port.reserve(21);
-    boost::system::error_code ec;
-    its_address_port += remote_address_.to_string(ec);
+    its_address_port += remote_address_.to_string();
     its_address_port += ":";
     its_address_port += std::to_string(remote_port_);
     return its_address_port;
@@ -835,7 +836,7 @@ std::string tcp_server_endpoint_impl::connection::get_address_port_local() const
     if (socket_.is_open()) {
         endpoint_type its_local_endpoint = socket_.local_endpoint(ec);
         if (!ec) {
-            its_address_port += its_local_endpoint.address().to_string(ec);
+            its_address_port += its_local_endpoint.address().to_string();
             its_address_port += ":";
             its_address_port += std::to_string(its_local_endpoint.port());
         }
@@ -984,15 +985,13 @@ void tcp_server_endpoint_impl::print_status() {
 
 std::string tcp_server_endpoint_impl::get_remote_information(
         const target_data_iterator_type _it) const {
-    boost::system::error_code ec;
-    return _it->first.address().to_string(ec) + ":"
+    return _it->first.address().to_string() + ":"
             + std::to_string(_it->first.port());
 }
 
 std::string tcp_server_endpoint_impl::get_remote_information(
         const endpoint_type& _remote) const {
-    boost::system::error_code ec;
-    return _remote.address().to_string(ec) + ":"
+    return _remote.address().to_string() + ":"
             + std::to_string(_remote.port());
 }
 
@@ -1016,7 +1015,7 @@ void tcp_server_endpoint_impl::connection::wait_until_sent(const boost::system::
         if (its_data.is_sending_ && _error) {
             std::chrono::milliseconds its_timeout(VSOMEIP_MAX_TCP_SENT_WAIT_TIME);
             boost::system::error_code ec;
-            its_data.sent_timer_.expires_from_now(its_timeout, ec);
+            its_data.sent_timer_.expires_after(its_timeout);
             its_data.sent_timer_.async_wait(std::bind(&tcp_server_endpoint_impl::connection::wait_until_sent,
                     std::dynamic_pointer_cast<tcp_server_endpoint_impl::connection>(shared_from_this()),
                     std::placeholders::_1));

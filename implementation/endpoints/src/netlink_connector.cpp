@@ -6,6 +6,8 @@
 #if defined(__linux__) || defined(ANDROID)
 
 #include <thread>
+#include <cstring>
+#include <netinet/in.h>
 
 #include <boost/asio/write.hpp>
 #include <boost/asio/read.hpp>
@@ -95,12 +97,14 @@ void netlink_connector::receive_cbk(boost::system::error_code const &_error,
     if (!_error) {
         size_t len = _bytes;
 
+        struct in6_addr address_buf{};
         unsigned int address(0);
         if (address_.is_v4()) {
-            inet_pton(AF_INET, address_.to_string().c_str(), &address);
+            inet_pton(AF_INET, address_.to_string().c_str(), &address_buf);
         } else {
-            inet_pton(AF_INET6, address_.to_string().c_str(), &address);
+            inet_pton(AF_INET6, address_.to_string().c_str(), &address_buf);
         }
+        std::memcpy(&address, &address_buf, sizeof(address));
 
         struct nlmsghdr *nlh = (struct nlmsghdr *)&recv_buffer_[0];
 
@@ -374,7 +378,7 @@ bool netlink_connector::check_sd_multicast_route_match(struct rtmsg* _routemsg,
                 }
                 const std::uint32_t dst_addr = ntohl(*((std::uint32_t *)RTA_DATA(retrta)));
                 const std::uint32_t dst_net = (dst_addr & netmask);
-                const std::uint32_t sd_addr = static_cast<std::uint32_t>(multicast_address_.to_v4().to_ulong());
+                const std::uint32_t sd_addr = static_cast<std::uint32_t>(multicast_address_.to_v4().to_uint());
                 const std::uint32_t sd_net = (sd_addr & netmask);
                 matches_sd_multicast = !(dst_net ^ sd_net);
             } else if (rtattr_length == 16 && multicast_address_.is_v6()) { // IPv6 route

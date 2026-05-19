@@ -13,6 +13,9 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/post.hpp>
+#include <boost/asio/dispatch.hpp>
 
 #include <vsomeip/defines.hpp>
 #include <vsomeip/internal/logger.hpp>
@@ -127,12 +130,12 @@ void client_endpoint_impl<Protocol>::stop() {
     {
         std::lock_guard<std::mutex> its_lock(connect_timer_mutex_);
         boost::system::error_code ec;
-        connect_timer_.cancel(ec);
+        connect_timer_.cancel();
     }
     connect_timeout_ = VSOMEIP_DEFAULT_CONNECT_TIMEOUT;
 
     // bind to strand as stop() might be called from different thread
-    strand_.dispatch(std::bind(&client_endpoint_impl::shutdown_and_close_socket,
+    boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::shutdown_and_close_socket,
             this->shared_from_this(),
             false)
     );
@@ -336,7 +339,7 @@ void client_endpoint_impl<Protocol>::send_segments(
         auto its_entry = get_front();
         if (its_entry.first) {
             is_sending_ = true;
-            strand_.dispatch(std::bind(&client_endpoint_impl::send_queued,
+            boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::send_queued,
                 this->shared_from_this(), its_entry));
         }
     }
@@ -449,7 +452,7 @@ void client_endpoint_impl<Protocol>::connect_cbk(
                 auto its_entry = get_front();
                 if (its_entry.first) {
                     is_sending_ = true;
-                    strand_.dispatch(std::bind(&client_endpoint_impl::send_queued,
+                    boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::send_queued,
                             this->shared_from_this(), its_entry));
                     VSOMEIP_WARNING << __func__ << ": resume sending to: "
                             << get_remote_information();
@@ -484,7 +487,7 @@ void client_endpoint_impl<Protocol>::wait_connect_cbk(
 
     if (!_error && !client_endpoint_impl<Protocol>::sending_blocked_) {
         auto self = this->shared_from_this();
-        strand_.dispatch(std::bind(&client_endpoint_impl::connect,
+        boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::connect,
                 this->shared_from_this()));
     }
 }
@@ -568,7 +571,7 @@ void client_endpoint_impl<Protocol>::send_cbk(
         }
         was_not_connected_ = true;
         shutdown_and_close_socket(true);
-        strand_.dispatch(std::bind(&client_endpoint_impl::connect,
+        boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::connect,
                 this->shared_from_this()));
     } else if (_error == boost::asio::error::not_connected
             || _error == boost::asio::error::bad_descriptor
@@ -584,7 +587,7 @@ void client_endpoint_impl<Protocol>::send_cbk(
         }
         was_not_connected_ = true;
         shutdown_and_close_socket(true);
-        strand_.dispatch(std::bind(&client_endpoint_impl::connect,
+        boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::connect,
                 this->shared_from_this()));
     } else if (_error == boost::asio::error::operation_aborted) {
         VSOMEIP_WARNING << "cei::send_cbk received error: " << _error.message();
@@ -698,7 +701,7 @@ template<typename Protocol>
 void client_endpoint_impl<Protocol>::start_connect_timer() {
 
     std::lock_guard<std::mutex> its_lock(connect_timer_mutex_);
-    connect_timer_.expires_from_now(
+    connect_timer_.expires_after(
             std::chrono::milliseconds(connect_timeout_));
     connect_timer_.async_wait(
             std::bind(&client_endpoint_impl<Protocol>::wait_connect_cbk,
@@ -709,7 +712,7 @@ template<typename Protocol>
 void client_endpoint_impl<Protocol>::start_connecting_timer() {
 
     std::lock_guard<std::mutex> its_lock(connecting_timer_mutex_);
-    connecting_timer_.expires_from_now(
+    connecting_timer_.expires_after(
             std::chrono::milliseconds(connecting_timeout_));
     connecting_timer_.async_wait(
             std::bind(&client_endpoint_impl<Protocol>::wait_connecting_cbk,
@@ -804,7 +807,7 @@ void client_endpoint_impl<Protocol>::queue_train(
         auto its_entry = get_front();
         if (its_entry.first) {
             is_sending_ = true;
-            strand_.dispatch(std::bind(&client_endpoint_impl::send_queued,
+            boost::asio::dispatch(strand_, std::bind(&client_endpoint_impl::send_queued,
                 this->shared_from_this(), its_entry));
         }
     }
@@ -843,9 +846,9 @@ void client_endpoint_impl<Protocol>::start_dispatch_timer(
     }
 
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
-    dispatch_timer_.expires_from_now(its_offset);
+    dispatch_timer_.expires_after(its_offset);
 #else
-    dispatch_timer_.expires_from_now(
+    dispatch_timer_.expires_after(
             std::chrono::duration_cast<
                 std::chrono::steady_clock::duration>(its_offset));
 #endif
@@ -857,8 +860,7 @@ void client_endpoint_impl<Protocol>::start_dispatch_timer(
 template<typename Protocol>
 void client_endpoint_impl<Protocol>::cancel_dispatch_timer() {
 
-    boost::system::error_code ec;
-    dispatch_timer_.cancel(ec);
+    dispatch_timer_.cancel();
 }
 
 template<typename Protocol>
